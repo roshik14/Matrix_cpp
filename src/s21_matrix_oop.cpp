@@ -2,9 +2,10 @@
 #include <exception>
 #include <stdexcept>
 
-static const double eps = 1e-7;
+namespace {
+const double eps = 1e-7;
 
-static double** create_matrix(int rows, int cols) {
+double** create_matrix(int rows, int cols) {
     double **matrix = new double *[rows];
     matrix[0] = new double[rows * cols]();
     for (int i = 1; i < rows; i++) {
@@ -13,19 +14,19 @@ static double** create_matrix(int rows, int cols) {
     return matrix;
 }
 
-inline static bool is_empty_matrix(int rows, int cols) {
+inline bool is_empty_matrix(int rows, int cols) {
     return rows == 0 || cols == 0;
 }
 
-inline static bool is_size_equal(const S21Matrix& m1, const S21Matrix& m2) {
+inline bool is_size_equal(const S21Matrix& m1, const S21Matrix& m2) {
     return m1.get_rows() == m2.get_rows() && m1.get_cols() == m2.get_cols();
 }
 
-inline static bool is_square_matrix(int rows, int cols) {
+inline bool is_square_matrix(int rows, int cols) {
     return rows == cols;
 }
 
-static double** copy_matrix(double **src, int rows, int cols) {
+double** copy_matrix(double **src, int rows, int cols) {
     double **result = create_matrix(rows, cols);
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) {
@@ -35,7 +36,7 @@ static double** copy_matrix(double **src, int rows, int cols) {
     return result;
 }
 
-static S21Matrix get_minor_matrix(const S21Matrix& m, int m_i, int m_j) {
+S21Matrix get_minor_matrix(const S21Matrix& m, int m_i, int m_j) {
     int rows = m.get_rows();
     int cols = m.get_cols();
     S21Matrix result(rows - 1, cols - 1);
@@ -49,6 +50,7 @@ static S21Matrix get_minor_matrix(const S21Matrix& m, int m_i, int m_j) {
         }
     }
     return result;
+}
 }
 
 inline S21Matrix::S21Matrix() : _rows(0), _cols(0), _matrix(nullptr) {
@@ -64,12 +66,10 @@ S21Matrix::S21Matrix(const S21Matrix& other) : _rows(other._rows), _cols(other._
     this->_matrix = copy_matrix(other._matrix, this->_rows, this->_cols);
 }
 
-S21Matrix::S21Matrix(S21Matrix&& other) : _rows(other._rows), _cols(other._cols) {
-    this->_matrix = copy_matrix(other._matrix, this->_rows, this->_cols);
-    delete []other._matrix[0];
-    delete []other._matrix;
+S21Matrix::S21Matrix(S21Matrix&& other) noexcept : _rows(other._rows), _cols(other._cols), _matrix(other._matrix) {
     other._rows = 0;
     other._cols = 0;
+    other._matrix = nullptr;
 }
 
 S21Matrix::~S21Matrix() {
@@ -197,25 +197,31 @@ S21Matrix S21Matrix::inverse_matrix() {
     return transposed;
 }
 
-S21Matrix S21Matrix::operator +(const S21Matrix& other) {
+const S21Matrix S21Matrix::operator +(const S21Matrix& other) {
     S21Matrix result(*this);
     result.sum_matrix(other);
     return result;
 }
 
-S21Matrix S21Matrix::operator -(const S21Matrix& other) {
+const S21Matrix S21Matrix::operator -(const S21Matrix& other) {
     S21Matrix result(*this);
     result.sub_matrix(other);
     return result;
 }
 
-S21Matrix S21Matrix::operator *(const double num) {
-    S21Matrix result(*this);
+const S21Matrix operator *(const S21Matrix &matrix, const double num) {
+    S21Matrix result(matrix);
     result.mul_number(num);
     return result;
 }
 
-S21Matrix S21Matrix::operator *(const S21Matrix& other) {
+const S21Matrix operator *(const double num, const S21Matrix &matrix) {
+    S21Matrix result(matrix);
+    result.mul_number(num);
+    return result;
+}
+
+const S21Matrix S21Matrix::operator *(const S21Matrix& other) {
     S21Matrix result(*this);
     result.mul_matrix(other);
     return result;
@@ -238,30 +244,28 @@ S21Matrix& S21Matrix::operator =(const S21Matrix& other) noexcept {
     return *this;
 }
 
-void S21Matrix::operator +=(const S21Matrix& other) {
+S21Matrix& S21Matrix::operator +=(const S21Matrix& other) {
     this->sum_matrix(other);
+    return *this;
 }
 
-void S21Matrix::operator -=(const S21Matrix& other) {
+S21Matrix& S21Matrix::operator -=(const S21Matrix& other) {
     this->sub_matrix(other);
+    return *this;
 }
 
-void S21Matrix::operator *=(const S21Matrix& other) {
+S21Matrix& S21Matrix::operator *=(const S21Matrix& other) {
     this->mul_matrix(other);
+    return *this;
 }
 
-void S21Matrix::operator *=(const double num) {
+S21Matrix& S21Matrix::operator *=(const double num) {
     this->mul_number(num);
+    return *this;
 }
 
 double& S21Matrix::operator ()(int i, int j) const {
     if ((i < 0 || i > _rows) || (j < 0 || j > _cols))
         throw std::out_of_range("Outside of matrix");
     return this->_matrix[i][j];
-}
-
-S21Matrix operator *(const double num, const S21Matrix& other) {
-    S21Matrix result(other);
-    result *= num;
-    return result;
 }
